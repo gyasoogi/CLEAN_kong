@@ -301,28 +301,28 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .hud-step-done { background: #80c8a9; color: #fff; }
 .game-hud-time { color: #477890; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 900; }
 .game-tip {
-  position: fixed;
+  position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 40;
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
-  min-height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 8px 14px;
-  border: 1px solid rgba(205,232,244,.82);
-  border-radius: 14px;
-  background: rgba(255,255,255,.88);
-  box-shadow: 0 8px 24px rgba(74,132,156,.14);
-  backdrop-filter: blur(8px);
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
   white-space: normal;
   text-align: center;
 }
-.game-tip span { color: #77b7ce; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
-.game-tip strong { color: #527f94; font-size: 12px; font-weight: 900; }
+.game-tip span,
+.game-tip strong { color: #fff; text-shadow: 0 1px 4px rgba(36,71,86,.75); }
+.game-tip span { font-size: 9px; font-weight: 900; letter-spacing: .12em; }
+.game-tip strong { font-size: 12px; font-weight: 900; }
 .game-card-minimal {
   height: 100%;
   padding: 0;
@@ -585,6 +585,8 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
   .ranking-page-row { grid-template-columns: 38px 1fr auto; gap: 8px; min-height: 58px; font-size: 14px; }
   .ranking-page-row time { font-size: 13px; }
   .game-screen { padding: 0; }
+  .game-tip { bottom: max(12px, env(safe-area-inset-bottom)); width: calc(100% - 24px); max-width: none; gap: 6px; }
+  .game-tip strong { font-size: 11px; }
   .game-card.game-card-minimal { padding: 0; border: 0; border-radius: 0; }
   .game-header { margin-bottom: 13px; }
   .header-brand > span { width: 37px; height: 37px; border-radius: 12px; font-size: 18px; }

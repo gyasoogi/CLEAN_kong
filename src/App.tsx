@@ -72,7 +72,7 @@ function DogCharacter({ wet = 0, happy = false, grabbed = false, compact = false
   compact?: boolean;
 }) {
   return (
-    <div className={`dog-character ${compact ? 'dog-compact' : ''} ${grabbed ? 'dog-grabbed' : ''} ${happy ? 'dog-happy' : ''}`} aria-label="귀여운 강아지 콩이">
+    <div className={`dog-character ${compact ? 'dog-compact' : ''} ${grabbed ? 'dog-grabbed' : ''} ${happy ? 'dog-happy' : ''}`} aria-label="귀여운 콩이">
       <span className="dog-shadow" />
       <span className="dog-tail" />
       <span className="dog-body"><i className="dog-belly" /></span>
@@ -884,10 +884,10 @@ export default function App() {
   if (screen === 'result') return <ResultScreen timeMs={elapsed} onRestart={restart} />;
 
   const playTips = [
-    '강아지 위로 마우스를 올리세요',
-    '파란 구간에 바늘이 오면 클릭하세요',
-    '강아지 이미지를 빠르게 클릭하세요',
-    '누르면 위로, 떼면 아래로 움직입니다',
+    '콩이 위에 마우스를 올려보세요',
+    '바늘이 파란 구간에 오면 눌러보세요',
+    '콩이 이미지를 빠르게 눌러보세요',
+    '화면을 홀드해 바를 올리고, 놓아보세요',
   ];
 
   return (
