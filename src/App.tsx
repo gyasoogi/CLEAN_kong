@@ -785,6 +785,10 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
   const register = async () => {
     if (saving || leaderboardLoading) return;
     const cleanName = (nicknameEdited ? nickname : defaultNickname).trim().slice(0, nicknameLimit) || defaultNickname;
+    if (cleanName === '콩이의 1번째 아버지' || cleanName === '콩의의 1번째 아버지') {
+      window.alert('우상의 화신이 당신을 바라봅니다');
+      return;
+    }
     const createdAt = new Date().toISOString();
     setSaving(true);
     setSaveError(false);
