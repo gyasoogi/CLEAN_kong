@@ -572,15 +572,17 @@ function MashingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
 }
 
 function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipDismiss: () => void }) {
-  const [player, setPlayer] = useState(92);
-  const [target, setTarget] = useState(50);
   const [dry, setDry] = useState(0);
   const [aligned, setAligned] = useState(false);
+  const playerElement = useRef<HTMLSpanElement>(null);
+  const targetElement = useRef<HTMLSpanElement>(null);
   const holdingRef = useRef(false);
   const pressedAtRef = useRef(0);
   const releasedAtRef = useRef(0);
   const playerRef = useRef(92);
   const targetRef = useRef(50);
+  const dryRef = useRef(0);
+  const lastGaugeUpdateRef = useRef(0);
   const alignedSinceRef = useRef<number | null>(null);
   const tipDismissedRef = useRef(false);
   const targetVelocityRef = useRef(0.9);
@@ -614,13 +616,13 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
         retargetAtRef.current = now + 300 + Math.random() * 480;
       }
       targetRef.current = targetPosition;
+      if (targetElement.current) targetElement.current.style.top = `${targetPosition - 13}%`;
       const riseSpeed = now - pressedAtRef.current < 250 ? 8.0 : 9.5;
       const fallSpeed = now - releasedAtRef.current < 250 ? 4.8 : 6.0;
       const desiredPlayer = clamp(playerRef.current + (holdingRef.current ? -riseSpeed : fallSpeed), 0, 100);
       const nextPlayer = clamp(playerRef.current + (desiredPlayer - playerRef.current) * 0.48, 0, 100);
       playerRef.current = nextPlayer;
-      setPlayer(nextPlayer);
-      setTarget(targetPosition);
+      if (playerElement.current) playerElement.current.style.top = `${nextPlayer}%`;
       const nextAligned = Math.abs(nextPlayer - targetPosition) <= 13;
       if (nextAligned) {
         alignedSinceRef.current ??= now;
@@ -632,14 +634,16 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
         alignedSinceRef.current = null;
       }
       setAligned(nextAligned);
-      setDry((value) => {
-        const next = clamp(value + (nextAligned ? 0.53 : -0.105), 0, 100);
-        if (next >= 100 && !done.current) {
-          done.current = true;
-          onSuccess();
-        }
-        return next;
-      });
+      const nextDry = clamp(dryRef.current + (nextAligned ? 0.53 : -0.105), 0, 100);
+      dryRef.current = nextDry;
+      if (now - lastGaugeUpdateRef.current >= 100 || nextDry >= 100) {
+        lastGaugeUpdateRef.current = now;
+        setDry(nextDry);
+      }
+      if (nextDry >= 100 && !done.current) {
+        done.current = true;
+        onSuccess();
+      }
     }, 50);
     window.addEventListener('blur', releaseHold);
     window.addEventListener('pointerup', releaseHold);
@@ -688,8 +692,8 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
         </div>
         <div className="dryer-game">
           <div className="dryer-track">
-            <span className="dryer-target" style={{ top: `${target - 13}%` }} />
-            <span className="dryer-player" style={{ top: `${player}%` }} />
+            <span ref={targetElement} className="dryer-target" style={{ top: '37%' }} />
+            <span ref={playerElement} className="dryer-player" style={{ top: '92%' }} />
           </div>
         </div>
         <div className="scene-caption"><span className="live-dot" />바람으로 털을 말리는 중…</div>
@@ -927,7 +931,7 @@ export default function App() {
     if (screen !== 'game' || startAt.current === null) return;
     const tick = window.setInterval(() => {
       if (startAt.current !== null) setElapsed(Date.now() - startAt.current);
-    }, 20);
+    }, 50);
     return () => window.clearInterval(tick);
   }, [screen]);
 
