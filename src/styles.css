@@ -595,10 +595,11 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
   .bathroom-window { right: 15px; top: 15px; transform: scale(.8); transform-origin: top right; }
   .bathroom-shelf { left: 15px; transform: scale(.8); transform-origin: top left; }
   .moving-dog { width: 360px; height: 360px; transform: translate(-50%, -50%) scale(.84); transform-origin: center; }
-  .moving-dog .stage-dog-image { width: 360px; height: 360px; }
+  .moving-dog .stage-dog-image { width: 324px; height: 324px; }
   .wet-dog-wrap,
   .foam-dog-wrap,
   .dryer-dog-wrap { transform: translateX(-50%) scale(1.2); top: 315px; }
+  .dryer-track { overflow: visible; }
   .scene-caption { bottom: 9px; left: 9px; font-size: 8px; padding: 5px 8px; }
   .control-hint { padding: 10px; gap: 8px; }
   .control-hint small { line-height: 1.4; }
@@ -654,6 +655,42 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
   .nickname-form input { padding-top: 9px; padding-bottom: 9px; }
   .result-actions { margin-top: auto; }
   .result-actions button { height: 40px; }
+}
+
+@media (max-width: 650px) {
+  .result-screen { height: 100svh; padding: 8px; align-items: stretch; }
+  .result-card { width: 100%; height: calc(100svh - 16px); padding: 8px 12px; }
+  .result-main, .ranking-section, .registration-section { transform: none; }
+  .result-copy { padding-bottom: 0; }
+  .result-description { margin: 1px 0 3px; font-size: 11px; }
+  .result-time-box strong { font-size: 30px; }
+  .result-dog-art { margin: 0; }
+  .result-dog-image { width: min(100%, 180px); max-height: 16svh; }
+  .rank-chip { margin-top: 3px; padding: 4px 8px; font-size: 10px; }
+  .result-divider { margin-bottom: 5px; }
+  .ranking-section { min-height: 0; padding: 5px 8px; }
+  .ranking-head { margin-bottom: 0; padding: 2px 6px; }
+  .ranking-head h2 { font-size: 17px; }
+  .leaderboard-list { gap: 1px; margin-top: 2px; }
+  .leaderboard-row { min-height: 22px; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 6px; padding: 0 6px; font-size: 11px; }
+  .leaderboard-row strong { font-size: 11px; }
+  .leaderboard-row time { font-size: 12px; }
+  .leaderboard-place { min-width: 30px; padding: 4px 6px; font-size: 10px; }
+  .leaderboard-place.place-1 { min-width: 34px; font-size: 12px; }
+  .leaderboard-place.place-2 { min-width: 32px; font-size: 11px; }
+  .leaderboard-place.place-3 { min-width: 30px; font-size: 10px; }
+  .leaderboard-state { padding: 6px 4px; font-size: 10px; }
+  .empty-ranking { padding: 6px 10px; font-size: 10px; }
+  .registration-section { flex: 0 0 auto; margin-top: 6px; padding: 0 2px; }
+  .nickname-form > div { gap: 6px; }
+  .nickname-form input { padding: 8px 11px; font-size: 12px; }
+  .nickname-form .primary-button { flex: 0 0 auto; padding: 8px 11px; font-size: 12px; white-space: nowrap; }
+  .nickname-form > small { margin: 3px 4px 0; font-size: 8px; }
+  .saved-message { gap: 7px; padding: 7px 10px; }
+  .saved-message strong { font-size: 11px; }
+  .saved-message small { font-size: 9px; }
+  .result-actions { flex: 0 0 auto; gap: 5px; margin-top: auto; }
+  .result-actions button { height: 36px; padding: 0 2px; font-size: 11px; }
 }
 
 @media (min-width: 651px) {

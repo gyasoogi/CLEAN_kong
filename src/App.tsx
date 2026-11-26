@@ -676,7 +676,7 @@ async function drawResultImage(timeMs: number, rank: number | null, nickname: st
 
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
-  canvas.height = 1500;
+  canvas.height = 700;
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     window.alert('결과 이미지를 만들 수 없어요.');
@@ -686,53 +686,49 @@ async function drawResultImage(timeMs: number, rank: number | null, nickname: st
   await document.fonts.ready;
   ctx.scale(2, 2);
   ctx.fillStyle = '#ffe16b';
-  ctx.fillRect(0, 0, 600, 750);
+  ctx.fillRect(0, 0, 600, 350);
   ctx.fillStyle = '#fff8e4';
   ctx.beginPath();
-  ctx.arc(300, 375, 450, 0, Math.PI * 2);
+  ctx.arc(300, 300, 317, 0, Math.PI * 2);
   ctx.fill();
 
+  const createdAt = new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#a18465';
+  ctx.font = '11px "Jua", sans-serif';
+  ctx.fillText(createdAt, 580, 24);
+
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#70482f';
-  ctx.font = '34px "Jua", sans-serif';
-  ctx.fillText('목욕 완료!', 300, 112);
   ctx.fillStyle = '#a18465';
   ctx.font = '14px "Jua", sans-serif';
-  ctx.fillText('콩이가 보송해졌어요', 300, 138);
+  ctx.fillText('콩이가 보송해졌어요', 300, 56);
   ctx.fillStyle = '#70452f';
   ctx.font = '800 42px "Nunito", monospace';
-  ctx.fillText(formatTime(timeMs), 300, 190);
+  ctx.fillText(formatTime(timeMs), 300, 100);
 
-  const dogImageMaxWidth = 300;
-  const dogImageMaxHeight = 220;
+  const dogImageMaxWidth = 380;
+  const dogImageMaxHeight = 210;
   const dogImageScale = Math.min(dogImageMaxWidth / happyImage.naturalWidth, dogImageMaxHeight / happyImage.naturalHeight);
   const dogImageWidth = happyImage.naturalWidth * dogImageScale;
   const dogImageHeight = happyImage.naturalHeight * dogImageScale;
-  ctx.drawImage(happyImage, 300 - dogImageWidth / 2, 200 + (220 - dogImageHeight) / 2, dogImageWidth, dogImageHeight);
+  ctx.drawImage(happyImage, 300 - dogImageWidth / 2, 96 + (210 - dogImageHeight) / 2, dogImageWidth, dogImageHeight);
 
-  ctx.fillStyle = 'rgba(255, 252, 242, .56)';
-  roundRect(ctx, 50, 470, 500, 130, 20);
-  ctx.fill();
-  ctx.strokeStyle = '#f3d9a6';
-  ctx.lineWidth = 1;
-  ctx.stroke();
   const details = [
-    { x: 64, label: '내 이름', value: nickname || '콩이 집사', fill: '#fffaf0' },
-    { x: 314, label: '내 랭킹', value: rank ? `${rank}위` : '랭킹 도전 중', fill: '#ffedb5' },
+    { x: 190, value: nickname || '콩이 집사', font: '20px "Jua", sans-serif' },
+    { x: 410, value: rank ? `${rank}위` : '랭킹 도전 중', font: '22px "Jua", sans-serif' },
   ];
-  details.forEach(({ x, label, value, fill }) => {
-    ctx.fillStyle = fill;
-    roundRect(ctx, x, 486, 222, 98, 16);
-    ctx.fill();
-    ctx.strokeStyle = '#f3d9a6';
-    ctx.stroke();
+  details.forEach(({ x, value, font }) => {
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#a18465';
-    ctx.font = '13px "Jua", sans-serif';
-    ctx.fillText(label, x + 111, 514);
     ctx.fillStyle = '#70482f';
-    ctx.font = label === '내 이름' ? '22px "Jua", sans-serif' : '24px "Jua", sans-serif';
-    ctx.fillText(value, x + 111, 557, 202);
+    ctx.font = font;
+    ctx.fillText(value, x, 335, 190);
   });
 
   const imageUrl = canvas.toDataURL('image/png');
@@ -740,17 +736,6 @@ async function drawResultImage(timeMs: number, rank: number | null, nickname: st
   anchor.href = imageUrl;
   anchor.download = `kongs-bath-time-${formatTime(timeMs).replaceAll(':', '-').replace('.', '-')}.png`;
   anchor.click();
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
 }
 
 function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number; onRestart: () => void; leaderboardState: LeaderboardState }) {
