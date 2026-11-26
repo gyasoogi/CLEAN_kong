@@ -426,7 +426,6 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
   transform: translateY(-50%);
   margin: 0;
 }
-.timing-game .timing-zone { transition: top .28s ease-out; }
 .under-note { display: flex; justify-content: space-between; gap: 12px; color: #71664b; font-size: 9px;margin-top: 10px; }
 
 /* MASH SCENE */

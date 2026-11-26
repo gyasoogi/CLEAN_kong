@@ -387,6 +387,7 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
   const [zoneLeft, setZoneLeft] = useState(54);
   const [waterMarks, setWaterMarks] = useState<{ id: number; x: number; y: number; size: number; rotation: number }[]>([]);
   const direction = useRef(1);
+  const zoneLeftRef = useRef(54);
   const locked = useRef(false);
   const done = useRef(false);
   const lastHitAt = useRef(0);
@@ -396,13 +397,11 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      setNeedle((value) => {
-        let next = value + direction.current * 1.375;
-        if (next >= 100) { next = 100; direction.current = -1; }
-        if (next <= 0) { next = 0; direction.current = 1; }
-        needleRef.current = next;
-        return next;
-      });
+      let next = needleRef.current + direction.current * 1.375;
+      if (next >= 100) { next = 100; direction.current = -1; }
+      if (next <= 0) { next = 0; direction.current = 1; }
+      needleRef.current = next;
+      setNeedle(next);
     }, 16);
     return () => window.clearInterval(id);
   }, []);
@@ -413,8 +412,9 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
     lastHitAt.current = now;
     locked.current = true;
     const clickPosition = needleRef.current;
-    const zoneRight = zoneLeft + TIMING_ZONE_SIZE;
-    const result = clickPosition >= zoneLeft && clickPosition <= zoneRight ? 'PERFECT!' : 'MISS!';
+    const currentZoneLeft = zoneLeftRef.current;
+    const zoneRight = currentZoneLeft + TIMING_ZONE_SIZE;
+    const result = clickPosition >= currentZoneLeft && clickPosition <= zoneRight ? 'PERFECT!' : 'MISS!';
     const gain = result === 'PERFECT!' ? 20 : 0;
     setFeedback(result);
     if (gain) {
@@ -439,11 +439,11 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
         }
         return next;
       });
-      setZoneLeft((current) => {
-        const choices = [8, 18, 28, 38, 48, 58, 68, 78];
-        const nextChoices = choices.filter((choice) => Math.abs(choice - current) >= 18);
-        return nextChoices[Math.floor(Math.random() * nextChoices.length)] ?? 54;
-      });
+      const choices = [8, 18, 28, 38, 48, 58, 68, 78];
+      const nextChoices = choices.filter((choice) => Math.abs(choice - currentZoneLeft) >= 18);
+      const nextZoneLeft = nextChoices[Math.floor(Math.random() * nextChoices.length)] ?? 54;
+      zoneLeftRef.current = nextZoneLeft;
+      setZoneLeft(nextZoneLeft);
     }
     window.setTimeout(() => {
       setFeedback(null);
