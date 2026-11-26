@@ -306,6 +306,8 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
         const next = holdingRef.current ? Math.min(100, current + 1) : Math.max(0, current - 0.9);
         if (next >= 100 && !doneRef.current) {
           doneRef.current = true;
+          holdingRef.current = false;
+          holdingSinceRef.current = null;
           onSuccess();
         }
         return next;
@@ -332,12 +334,26 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
     else stopHover();
   };
 
-  const stopHover = () => {
-    if (doneRef.current) return;
+  const stopHover = useCallback(() => {
     holdingRef.current = false;
     holdingSinceRef.current = null;
     setHolding(false);
-  };
+  }, []);
+
+  const releaseTouchHold = useCallback((event: PointerEvent) => {
+    if (event.pointerType === 'touch') stopHover();
+  }, [stopHover]);
+
+  useEffect(() => {
+    window.addEventListener('pointerup', releaseTouchHold);
+    window.addEventListener('pointercancel', releaseTouchHold);
+    window.addEventListener('blur', stopHover);
+    return () => {
+      window.removeEventListener('pointerup', releaseTouchHold);
+      window.removeEventListener('pointercancel', releaseTouchHold);
+      window.removeEventListener('blur', stopHover);
+    };
+  }, [releaseTouchHold, stopHover]);
 
   const startTouchHold = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== 'touch') return;
@@ -346,19 +362,16 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer capture is optional */ }
   };
 
-  const stopTouchHold = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== 'touch') return;
-    stopHover();
-  };
+  const stopTouchHold = (event: React.PointerEvent<HTMLDivElement>) => releaseTouchHold(event.nativeEvent);
 
   return (
     <div className="stage-content">
       <div className="stage-gauge"><Meter value={progress} label="HOLDING GAUGE" color="yellow" /></div>
-      <div className="scene holding-scene" ref={arenaRef} onPointerMove={trackPointer}>
+      <div className="scene holding-scene" ref={arenaRef} onPointerMove={trackPointer} onPointerUp={stopTouchHold} onPointerCancel={stopTouchHold}>
         <div className="bathroom-window"><span /><span /><span /><span /></div>
         <div className="bathroom-shelf"><i>🧴</i><i>🪴</i><i>🧼</i></div>
         <div className="scene-sparkle sparkle-a">✦</div><div className="scene-sparkle sparkle-b">✧</div>
-        <div ref={dogRef} className={`moving-dog ${holding ? 'moving-dog-held' : ''}`} style={{ left: `${position.x}%`, top: `${position.y}%` }} onPointerEnter={startHover} onPointerLeave={stopHover} onPointerDown={startTouchHold} onPointerUp={stopTouchHold} onPointerCancel={stopTouchHold}>
+        <div ref={dogRef} className={`moving-dog ${holding ? 'moving-dog-held' : ''}`} style={{ left: `${position.x}%`, top: `${position.y}%` }} onPointerEnter={startHover} onPointerLeave={stopHover} onPointerDown={startTouchHold} onPointerUp={stopTouchHold} onPointerCancel={stopTouchHold} onLostPointerCapture={stopTouchHold}>
           <StageDogImage state="jump" />
         </div>
         <div className="scene-caption"><span className="live-dot" />{holding ? '콩이를 꼭 붙잡고 있어요!' : '콩이가 이리저리 도망치는 중…'}</div>
@@ -770,7 +783,7 @@ async function drawResultImage(timeMs: number, rank: number | null, nickname: st
 function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number; onRestart: () => void; leaderboardState: LeaderboardState }) {
   const { entries: leaderboard, loading: leaderboardLoading, error: leaderboardError } = leaderboardState;
   const defaultNickname = `콩이의 ${leaderboard.length + 1}번째 어머니`;
-  const nicknameLimit = Math.max(12, defaultNickname.length);
+  const nicknameLimit = 20;
   const [nickname, setNickname] = useState('콩이의 1번째 어머니');
   const [nicknameEdited, setNicknameEdited] = useState(false);
   const [rank, setRank] = useState<number | null>(null);
