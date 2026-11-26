@@ -41,6 +41,17 @@ function formatTime(ms: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
 }
 
+function getResultShareCopy(timeMs: number, rank: number | null) {
+  const ranking = rank ? `랭킹 ${rank}위` : '랭킹 도전 중';
+  return {
+    title: '🐶 콩이를 씻겼다!',
+    subtitle: '나보다 빠르게 씻길 수 있을까?',
+    record: `기록 (${formatTime(timeMs)}) · ${ranking}`,
+    ranking,
+    hashtag: '#콩아씻자',
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -665,62 +676,64 @@ async function drawResultImage(timeMs: number, rank: number | null, nickname: st
 
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
-  canvas.height = 675;
+  canvas.height = 1500;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const gradient = ctx.createLinearGradient(0, 0, 1200, 675);
-  gradient.addColorStop(0, '#ffd952');
-  gradient.addColorStop(1, '#ffeb9c');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 1200, 675);
-
-  ctx.fillStyle = 'rgba(255,255,255,.38)';
-  for (let i = 0; i < 23; i++) {
-    const x = (i * 197 + 43) % 1200;
-    const y = (i * 113 + 31) % 675;
-    ctx.beginPath();
-    ctx.arc(x, y, 8 + (i % 4) * 5, 0, Math.PI * 2);
-    ctx.fill();
+  if (!ctx) {
+    window.alert('결과 이미지를 만들 수 없어요.');
+    return;
   }
 
-  ctx.fillStyle = '#ffffff';
-  roundRect(ctx, 65, 55, 1070, 565, 42);
+  await document.fonts.ready;
+  ctx.scale(2, 2);
+  ctx.fillStyle = '#ffe16b';
+  ctx.fillRect(0, 0, 600, 750);
+  ctx.fillStyle = '#fff8e4';
+  ctx.beginPath();
+  ctx.arc(300, 375, 450, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#111111';
-  ctx.font = '500 22px Arial, sans-serif';
-  ctx.fillText("KONG'S BATH TIME", 120, 125);
-  ctx.fillStyle = '#111111';
-  ctx.font = '900 58px Arial, sans-serif';
-  ctx.fillText('MISSION COMPLETE!', 120, 205);
-  ctx.fillStyle = '#444444';
-  ctx.font = '600 27px Arial, sans-serif';
-  ctx.fillText('콩이 목욕 대작전 성공!', 122, 252);
 
-  const dogImageMaxWidth = 390;
-  const dogImageMaxHeight = 390;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#70482f';
+  ctx.font = '34px "Jua", sans-serif';
+  ctx.fillText('목욕 완료!', 300, 112);
+  ctx.fillStyle = '#a18465';
+  ctx.font = '14px "Jua", sans-serif';
+  ctx.fillText('콩이가 보송해졌어요', 300, 138);
+  ctx.fillStyle = '#70452f';
+  ctx.font = '800 42px "Nunito", monospace';
+  ctx.fillText(formatTime(timeMs), 300, 190);
+
+  const dogImageMaxWidth = 300;
+  const dogImageMaxHeight = 220;
   const dogImageScale = Math.min(dogImageMaxWidth / happyImage.naturalWidth, dogImageMaxHeight / happyImage.naturalHeight);
   const dogImageWidth = happyImage.naturalWidth * dogImageScale;
   const dogImageHeight = happyImage.naturalHeight * dogImageScale;
-  ctx.drawImage(happyImage, 865 - dogImageWidth / 2, 350 - dogImageHeight / 2, dogImageWidth, dogImageHeight);
+  ctx.drawImage(happyImage, 300 - dogImageWidth / 2, 200 + (220 - dogImageHeight) / 2, dogImageWidth, dogImageHeight);
 
-  ctx.fillStyle = '#111111';
-  ctx.font = '800 23px Arial, sans-serif';
-  ctx.fillText('CLEAR TIME', 120, 360);
-  ctx.fillStyle = '#111111';
-  ctx.font = '900 72px monospace';
-  ctx.fillText(formatTime(timeMs), 120, 445);
-  ctx.fillStyle = '#444444';
-  ctx.font = '600 22px Arial, sans-serif';
-  ctx.fillText(nickname ? `PLAYER  ${nickname}` : 'PLAYER  KONG LOVER', 122, 495);
-  ctx.fillStyle = '#ffce47';
-  roundRect(ctx, 120, 525, rank ? 260 : 330, 54, 27); ctx.fill();
-  ctx.fillStyle = '#111111';
-  ctx.font = '800 22px Arial, sans-serif';
-  ctx.fillText(rank ? `RANK  #${rank}` : 'BATH TIME CHAMPION', 145, 560);
-  ctx.fillStyle = '#555555';
-  ctx.font = '500 17px Arial, sans-serif';
-  ctx.fillText('Wash fast, stay fluffy. 🐾', 820, 570);
+  ctx.fillStyle = 'rgba(255, 252, 242, .56)';
+  roundRect(ctx, 50, 470, 500, 130, 20);
+  ctx.fill();
+  ctx.strokeStyle = '#f3d9a6';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  const details = [
+    { x: 64, label: '내 이름', value: nickname || '콩이 집사', fill: '#fffaf0' },
+    { x: 314, label: '내 랭킹', value: rank ? `${rank}위` : '랭킹 도전 중', fill: '#ffedb5' },
+  ];
+  details.forEach(({ x, label, value, fill }) => {
+    ctx.fillStyle = fill;
+    roundRect(ctx, x, 486, 222, 98, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#f3d9a6';
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#a18465';
+    ctx.font = '13px "Jua", sans-serif';
+    ctx.fillText(label, x + 111, 514);
+    ctx.fillStyle = '#70482f';
+    ctx.font = label === '내 이름' ? '22px "Jua", sans-serif' : '24px "Jua", sans-serif';
+    ctx.fillText(value, x + 111, 557, 202);
+  });
 
   const imageUrl = canvas.toDataURL('image/png');
   const anchor = document.createElement('a');
@@ -781,8 +794,8 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
   };
 
   const share = () => {
-    const rankText = rank ? `랭킹 ${rank}위` : '랭킹 도전 중';
-    const text = `🐶 콩이를 씻겼다! 나보다 빠르게 씻길 수 있을까?\n기록 (${formatTime(timeMs)}) · ${rankText}\n\n#콩아씻자`;
+    const copy = getResultShareCopy(timeMs, rank);
+    const text = `${copy.title} ${copy.subtitle}\n${copy.record}\n\n${copy.hashtag}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -794,7 +807,7 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
         <div className="result-main">
           <section className="result-copy">
             <h1>목욕 완료<span>!</span></h1>
-            <p className="result-description">콩이가 보송해졌어요!</p>
+            <p className="result-description">콩이가 보송해졌어요</p>
             <div className="result-time-box"><strong>{formatTime(timeMs)}</strong></div>
           </section>
           <ResultDogArt />
@@ -821,7 +834,7 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
         <div className="result-actions">
           <button className="share-button" onClick={share}>↗ 공유하기</button>
           <button className="restart-button" onClick={onRestart}>↻ 다시 하기</button>
-          <button className="download-button" onClick={() => { void drawResultImage(timeMs, rank, nickname.trim()); }}>↓ 이미지 저장</button>
+          <button className="download-button" onClick={() => { void drawResultImage(timeMs, rank, currentRankEntry?.nickname ?? (nickname.trim() || defaultNickname)); }}>↓ 이미지 저장</button>
         </div>
       </div>
     </main>
@@ -841,6 +854,16 @@ export default function App() {
   const stageRef = useRef(stage);
   screenRef.current = screen;
   stageRef.current = stage;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (screen !== 'title' || event.key !== 'F2' || event.repeat) return;
+      event.preventDefault();
+      void drawResultImage(12_340, 3, '테스트 집사');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== 'game' || startAt.current === null) return;
