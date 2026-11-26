@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { onValue, push } from '@firebase/database';
+import { onValue, push, runTransaction } from '@firebase/database';
 import chProfile from '../img/ch.png';
 import dryDog from '../img/dry.png';
 import happyDog from '../img/happy.png';
@@ -58,6 +58,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function parseLeaderboardEntries(value: unknown): LeaderboardEntry[] {
+  if (!isRecord(value)) return [];
+  return Object.entries(value).flatMap(([id, item]) => {
+    if (!isRecord(item) || typeof item.nickname !== 'string' ||
+      typeof item.timeMs !== 'number' || !Number.isFinite(item.timeMs) ||
+      typeof item.createdAt !== 'string') return [];
+    return [{ id, nickname: item.nickname, timeMs: item.timeMs, createdAt: item.createdAt }];
+  });
+}
+
 function useLeaderboard(enabled: boolean) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,15 +82,7 @@ function useLeaderboard(enabled: boolean) {
     setLoading(true);
     setError(null);
     return onValue(leaderboardRef, (snapshot) => {
-      const value: unknown = snapshot.val();
-      const nextEntries = isRecord(value)
-        ? Object.entries(value).flatMap(([id, item]) => {
-          if (!isRecord(item) || typeof item.nickname !== 'string' ||
-            typeof item.timeMs !== 'number' || !Number.isFinite(item.timeMs) ||
-            typeof item.createdAt !== 'string') return [];
-          return [{ id, nickname: item.nickname, timeMs: item.timeMs, createdAt: item.createdAt }];
-        })
-        : [];
+      const nextEntries = parseLeaderboardEntries(snapshot.val());
       setEntries(nextEntries.sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt)).slice(0, 100));
       setLoading(false);
       setError(null);
@@ -794,10 +796,35 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
     setSaveError(false);
     setSaveErrorMessage('');
     try {
-      const savedReference = await push(leaderboardRef, { nickname: cleanName, timeMs, createdAt });
-      if (!savedReference.key) throw new Error('Firebase가 기록 ID를 반환하지 않았습니다.');
-      const entry: LeaderboardEntry = { id: savedReference.key, nickname: cleanName, timeMs, createdAt };
-      const updated = [...leaderboard, entry].sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt));
+      const newEntryKey = push(leaderboardRef).key;
+      if (!newEntryKey) throw new Error('Firebase가 기록 ID를 반환하지 않았습니다.');
+      const result = await runTransaction(leaderboardRef, (currentValue) => {
+        if (currentValue !== null && !isRecord(currentValue)) return;
+        const updated: Record<string, unknown> = isRecord(currentValue) ? { ...currentValue } : {};
+        const bestByNickname = new Map<string, LeaderboardEntry>();
+        parseLeaderboardEntries(updated).forEach((entry) => {
+          const currentBest = bestByNickname.get(entry.nickname);
+          if (!currentBest || entry.timeMs < currentBest.timeMs) bestByNickname.set(entry.nickname, entry);
+        });
+        const bestEntryIds = new Set([...bestByNickname.values()].map((entry) => entry.id));
+        parseLeaderboardEntries(updated).forEach((entry) => {
+          if (!bestEntryIds.has(entry.id)) delete updated[entry.id];
+        });
+        const currentBest = bestByNickname.get(cleanName);
+        if (currentBest) {
+          if (timeMs < currentBest.timeMs) {
+            updated[currentBest.id] = { nickname: cleanName, timeMs, createdAt };
+          }
+        } else {
+          updated[newEntryKey] = { nickname: cleanName, timeMs, createdAt };
+        }
+        return updated;
+      });
+      if (!result.committed) throw new Error('랭킹 기록을 갱신하지 못했습니다.');
+      const updated = parseLeaderboardEntries(result.snapshot.val())
+        .sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt));
+      const entry = updated.find((item) => item.nickname === cleanName);
+      if (!entry) throw new Error('Firebase가 갱신된 기록을 반환하지 않았습니다.');
       setRegisteredEntry(entry);
       setRank(leaderboardError ? null : updated.findIndex((item) => item.id === entry.id) + 1);
       setSaved(true);
@@ -809,13 +836,14 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
     }
   };
 
+  const currentRankEntry = registeredEntry;
+  const displayedTimeMs = currentRankEntry?.timeMs ?? timeMs;
+
   const share = () => {
-    const copy = getResultShareCopy(timeMs, rank);
+    const copy = getResultShareCopy(displayedTimeMs, rank);
     const text = `${copy.title} ${copy.subtitle}\n${copy.record}\n\n${copy.hashtag}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
-
-  const currentRankEntry = registeredEntry;
 
   return (
     <main className="result-screen">
@@ -824,7 +852,7 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
           <section className="result-copy">
             <h1>목욕 완료<span>!</span></h1>
             <p className="result-description">콩이가 보송해졌어요</p>
-            <div className="result-time-box"><strong>{formatTime(timeMs)}</strong></div>
+            <div className="result-time-box"><strong>{formatTime(displayedTimeMs)}</strong></div>
           </section>
           <ResultDogArt />
           {rank && <div className="rank-chip">🏆 GLOBAL RANK <strong>#{rank}</strong></div>}
@@ -850,7 +878,7 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
         <div className="result-actions">
           <button className="share-button" onClick={share}>↗ 공유하기</button>
           <button className="restart-button" onClick={onRestart}>↻ 다시 하기</button>
-          <button className="download-button" onClick={() => { void drawResultImage(timeMs, rank, currentRankEntry?.nickname ?? (nickname.trim() || defaultNickname)); }}>↓ 이미지 저장</button>
+          <button className="download-button" onClick={() => { void drawResultImage(displayedTimeMs, rank, currentRankEntry?.nickname ?? (nickname.trim() || defaultNickname)); }}>↓ 이미지 저장</button>
         </div>
       </div>
     </main>
