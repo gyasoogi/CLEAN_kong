@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onValue, push } from '@firebase/database';
 import chProfile from '../img/ch.png';
+import dryDog from '../img/dry.png';
 import happyDog from '../img/happy.png';
+import jumpDog from '../img/jump.png';
 import titleLogo from '../img/logo.png';
+import messDog from '../img/mess.png';
+import wetDog from '../img/wet.png';
 import { leaderboardRef } from './firebase';
 
 type Screen = 'title' | 'ranking' | 'intro' | 'game' | 'result';
@@ -78,8 +82,15 @@ function useLeaderboard(enabled: boolean) {
 
 type LeaderboardState = ReturnType<typeof useLeaderboard>;
 
+const STAGE_DOG_IMAGES = {
+  jump: jumpDog,
+  mess: messDog,
+  wet: wetDog,
+  dry: dryDog,
+};
+
 function StageDogImage({ state, className = '' }: { state: 'jump' | 'mess' | 'wet' | 'dry'; className?: string }) {
-  return <img className={`stage-dog-image ${className}`} src={`/img/${state}.png`} alt="콩이" draggable={false} />;
+  return <img className={`stage-dog-image ${className}`} src={STAGE_DOG_IMAGES[state]} alt="콩이" draggable={false} />;
 }
 
 function LeaderboardRows({ entries, currentEntryId, maxEntries = 5 }: { entries: LeaderboardEntry[]; currentEntryId?: string; maxEntries?: number }) {
