@@ -31,6 +31,8 @@ const STAGES: StageMeta[] = [
   { label: '04', title: '뽀송하게 말리기', subtitle: '움직이는 구간을 따라 바람을 쐬어 주세요!', icon: '🌬️' },
 ];
 
+const TIMING_ZONE_SIZE = 14.4;
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 function formatTime(ms: number) {
@@ -264,13 +266,15 @@ function Meter({ value, label, color = 'blue' }: { value: number; label: string;
   );
 }
 
-function HoldingStage({ onSuccess }: { onSuccess: () => void }) {
+function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipDismiss: () => void }) {
   const [position, setPosition] = useState({ x: 50, y: 50 });
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
   const arenaRef = useRef<HTMLDivElement>(null);
   const dogRef = useRef<HTMLDivElement>(null);
   const holdingRef = useRef(false);
+  const holdingSinceRef = useRef<number | null>(null);
+  const tipDismissedRef = useRef(false);
   const doneRef = useRef(false);
 
   useEffect(() => {
@@ -292,8 +296,12 @@ function HoldingStage({ onSuccess }: { onSuccess: () => void }) {
       });
     }, 780);
     const meter = window.setInterval(() => {
+      if (holdingSinceRef.current !== null && Date.now() - holdingSinceRef.current >= 5000 && !tipDismissedRef.current) {
+        tipDismissedRef.current = true;
+        onTipDismiss();
+      }
       setProgress((current) => {
-        const next = holdingRef.current ? Math.min(100, current + 2.4) : Math.max(0, current - 0.9);
+        const next = holdingRef.current ? Math.min(100, current + 1) : Math.max(0, current - 0.9);
         if (next >= 100 && !doneRef.current) {
           doneRef.current = true;
           onSuccess();
@@ -302,10 +310,11 @@ function HoldingStage({ onSuccess }: { onSuccess: () => void }) {
       });
     }, 50);
     return () => { window.clearInterval(move); window.clearInterval(meter); };
-  }, [onSuccess]);
+  }, [onSuccess, onTipDismiss]);
 
   const startHover = () => {
     if (doneRef.current) return;
+    if (!holdingRef.current) holdingSinceRef.current = Date.now();
     holdingRef.current = true;
     setHolding(true);
   };
@@ -324,6 +333,7 @@ function HoldingStage({ onSuccess }: { onSuccess: () => void }) {
   const stopHover = () => {
     if (doneRef.current) return;
     holdingRef.current = false;
+    holdingSinceRef.current = null;
     setHolding(false);
   };
 
@@ -355,7 +365,7 @@ function HoldingStage({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function TimingStage({ onSuccess }: { onSuccess: () => void }) {
+function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipDismiss: () => void }) {
   const [needle, setNeedle] = useState(0);
   const [progress, setProgress] = useState(0);
   const [feedback, setFeedback] = useState<'PERFECT!' | 'MISS!' | null>(null);
@@ -365,13 +375,14 @@ function TimingStage({ onSuccess }: { onSuccess: () => void }) {
   const locked = useRef(false);
   const done = useRef(false);
   const lastHitAt = useRef(0);
+  const successfulHits = useRef(0);
   const needleRef = useRef(0);
   const waterMarkId = useRef(0);
 
   useEffect(() => {
     const id = window.setInterval(() => {
       setNeedle((value) => {
-        let next = value + direction.current * 1.25;
+        let next = value + direction.current * 1.375;
         if (next >= 100) { next = 100; direction.current = -1; }
         if (next <= 0) { next = 0; direction.current = 1; }
         needleRef.current = next;
@@ -387,9 +398,9 @@ function TimingStage({ onSuccess }: { onSuccess: () => void }) {
     lastHitAt.current = now;
     locked.current = true;
     const clickPosition = needleRef.current;
-    const zoneRight = zoneLeft + 18;
+    const zoneRight = zoneLeft + TIMING_ZONE_SIZE;
     const result = clickPosition >= zoneLeft && clickPosition <= zoneRight ? 'PERFECT!' : 'MISS!';
-    const gain = result === 'PERFECT!' ? 30 : 0;
+    const gain = result === 'PERFECT!' ? 20 : 0;
     setFeedback(result);
     if (gain) {
       const newWaterMarks = Array.from({ length: 4 }, () => {
@@ -403,6 +414,8 @@ function TimingStage({ onSuccess }: { onSuccess: () => void }) {
         };
       });
       setWaterMarks((marks) => [...marks, ...newWaterMarks]);
+      successfulHits.current += 1;
+      if (successfulHits.current >= 2) onTipDismiss();
       setProgress((value) => {
         const next = Math.min(100, value + gain);
         if (next >= 100) {
@@ -450,7 +463,7 @@ function TimingStage({ onSuccess }: { onSuccess: () => void }) {
         <div className={`judgement ${feedback ? 'judgement-show' : ''} ${feedback === 'MISS!' ? 'judgement-miss' : ''}`}>{feedback ?? 'READY?'}</div>
         <div className="timing-game">
           <div className="dryer-track">
-            <span className="dryer-target timing-zone" style={{ top: `${zoneLeft}%` }} />
+            <span className="dryer-target timing-zone" style={{ top: `${zoneLeft}%`, height: `${TIMING_ZONE_SIZE}%` }} />
             <span className="dryer-player" style={{ top: `${needle}%` }} />
           </div>
         </div>
@@ -462,11 +475,12 @@ function TimingStage({ onSuccess }: { onSuccess: () => void }) {
 
 type FoamParticle = { id: number; x: number; y: number; size: number };
 
-function MashingStage({ onSuccess }: { onSuccess: () => void }) {
+function MashingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipDismiss: () => void }) {
   const [progress, setProgress] = useState(0);
   const [particles, setParticles] = useState<FoamParticle[]>([]);
   const lastTap = useRef(Date.now());
   const done = useRef(false);
+  const successfulClicks = useRef(0);
   const particleId = useRef(0);
 
   useEffect(() => {
@@ -483,6 +497,8 @@ function MashingStage({ onSuccess }: { onSuccess: () => void }) {
   const mash = useCallback(() => {
     if (done.current) return;
     lastTap.current = Date.now();
+    successfulClicks.current += 1;
+    if (successfulClicks.current >= 5) onTipDismiss();
     const newParticles = Array.from({ length: 3 }, () => {
       const angle = Math.random() * Math.PI * 2;
       const radius = 8 + Math.random() * 32;
@@ -502,7 +518,7 @@ function MashingStage({ onSuccess }: { onSuccess: () => void }) {
       }
       return next;
     });
-  }, [onSuccess]);
+  }, [onSuccess, onTipDismiss]);
 
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent) => {
@@ -540,7 +556,7 @@ function MashingStage({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function DryerStage({ onSuccess }: { onSuccess: () => void }) {
+function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipDismiss: () => void }) {
   const [player, setPlayer] = useState(92);
   const [target, setTarget] = useState(50);
   const [dry, setDry] = useState(0);
@@ -550,6 +566,8 @@ function DryerStage({ onSuccess }: { onSuccess: () => void }) {
   const releasedAtRef = useRef(0);
   const playerRef = useRef(92);
   const targetRef = useRef(50);
+  const alignedSinceRef = useRef<number | null>(null);
+  const tipDismissedRef = useRef(false);
   const targetVelocityRef = useRef(0.9);
   const retargetAtRef = useRef(Date.now() + 520);
   const done = useRef(false);
@@ -588,9 +606,18 @@ function DryerStage({ onSuccess }: { onSuccess: () => void }) {
       playerRef.current = nextPlayer;
       setPlayer(nextPlayer);
       setTarget(targetPosition);
+      const nextAligned = Math.abs(nextPlayer - targetPosition) <= 13;
+      if (nextAligned) {
+        alignedSinceRef.current ??= now;
+        if (now - alignedSinceRef.current >= 5000 && !tipDismissedRef.current) {
+          tipDismissedRef.current = true;
+          onTipDismiss();
+        }
+      } else {
+        alignedSinceRef.current = null;
+      }
+      setAligned(nextAligned);
       setDry((value) => {
-        const nextAligned = Math.abs(nextPlayer - targetPosition) <= 13;
-        setAligned(nextAligned);
         const next = clamp(value + (nextAligned ? 0.53 : -0.105), 0, 100);
         if (next >= 100 && !done.current) {
           done.current = true;
@@ -606,7 +633,7 @@ function DryerStage({ onSuccess }: { onSuccess: () => void }) {
       window.removeEventListener('blur', releaseHold);
       window.removeEventListener('pointerup', releaseHold);
     };
-  }, [onSuccess, releaseHold]);
+  }, [onSuccess, onTipDismiss, releaseHold]);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -835,6 +862,7 @@ export default function App() {
   const [showTip, setShowTip] = useState(false);
   const startAt = useRef<number | null>(null);
   const transitionLock = useRef(false);
+  const tipDismissed = useRef(false);
   const screenRef = useRef<Screen>(screen);
   const stageRef = useRef(stage);
   screenRef.current = screen;
@@ -860,11 +888,20 @@ export default function App() {
 
   useEffect(() => {
     setShowTip(false);
+    tipDismissed.current = false;
     if (screen !== 'game') return;
 
-    const timeout = window.setTimeout(() => setShowTip(true), 10_000);
+    const tipDelay = stage === STAGES.length - 1 ? 20_000 : 10_000;
+    const timeout = window.setTimeout(() => {
+      if (!tipDismissed.current) setShowTip(true);
+    }, tipDelay);
     return () => window.clearTimeout(timeout);
   }, [screen, stage]);
+
+  const dismissTip = useCallback(() => {
+    tipDismissed.current = true;
+    setShowTip(false);
+  }, []);
 
   const begin = useCallback(() => {
     startAt.current = Date.now();
@@ -915,12 +952,12 @@ export default function App() {
 
   const activeStage = useMemo(() => {
     switch (stage) {
-      case 0: return <HoldingStage onSuccess={completeStage} />;
-      case 1: return <TimingStage onSuccess={completeStage} />;
-      case 2: return <MashingStage onSuccess={completeStage} />;
-      default: return <DryerStage onSuccess={completeStage} />;
+      case 0: return <HoldingStage onSuccess={completeStage} onTipDismiss={dismissTip} />;
+      case 1: return <TimingStage onSuccess={completeStage} onTipDismiss={dismissTip} />;
+      case 2: return <MashingStage onSuccess={completeStage} onTipDismiss={dismissTip} />;
+      default: return <DryerStage onSuccess={completeStage} onTipDismiss={dismissTip} />;
     }
-  }, [completeStage, stage]);
+  }, [completeStage, dismissTip, stage]);
 
   if (screen === 'title' || screen === 'ranking') {
     return (
