@@ -782,7 +782,7 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
 
   const share = () => {
     const rankText = rank ? `랭킹 ${rank}위` : '랭킹 도전 중';
-    const text = `🐶 KONG'S BATH TIME 클리어!\n기록 ${formatTime(timeMs)} · ${rankText}\n콩이 목욕 대작전 성공! 나보다 빠르게 씻길 수 있을까? #KongsBathTime`;
+    const text = `🐶 콩이를 씻겼다! 나보다 빠르게 씻길 수 있을까?\n기록 (${formatTime(timeMs)}) · ${rankText}\n\n#콩아씻자`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
