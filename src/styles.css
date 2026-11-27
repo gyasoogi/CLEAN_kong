@@ -484,6 +484,10 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .dryer-player { position: absolute; left: 50%; width: 14px; height: 14px; border-radius: 50%; transition: top 60ms linear; background: #111; border: 2px solid white; box-shadow: none; transform: translate(-50%, -50%); z-index: 2; }
 .timing-game .dryer-player,
 .dryer-game .dryer-player { background: #111; }
+.timing-game .dryer-target,
+.timing-game .dryer-player {
+  transition: none;
+}
 .dryer-game .dryer-target,
 .dryer-game .dryer-player { transition: none; }
 .dryer-track-legend { display: none; }
