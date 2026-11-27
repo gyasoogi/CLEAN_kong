@@ -414,7 +414,13 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
     const clickPosition = needleRef.current;
     const currentZoneLeft = zoneLeftRef.current;
     const zoneRight = currentZoneLeft + TIMING_ZONE_SIZE;
-    const result = clickPosition >= currentZoneLeft && clickPosition <= zoneRight ? 'PERFECT!' : 'MISS!';
+    const zoneCenter = currentZoneLeft + TIMING_ZONE_SIZE / 2;
+    const centerTolerance = 2;
+    const result = (
+      clickPosition >= currentZoneLeft - centerTolerance
+      && clickPosition <= zoneRight + centerTolerance
+      && Math.abs(clickPosition - zoneCenter) <= TIMING_ZONE_SIZE / 2 + centerTolerance
+    ) ? 'PERFECT!' : 'MISS!';
     const gain = result === 'PERFECT!' ? 20 : 0;
     setFeedback(result);
     if (gain) {

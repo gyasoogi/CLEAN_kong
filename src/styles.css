@@ -357,7 +357,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
   box-shadow: 0 5px 16px rgba(0,0,0,.12);
 }
 .stage-gauge .meter-wrap { width: 100%; }
-.stage-gauge .meter-track { height: 8px; border: 1px solid #111; background: #eee; box-shadow: none; }
+.stage-gauge .meter-track { height: 8px; border: 0; background: #eee; box-shadow: none; }
 .stage-gauge .meter-track span { background: #ffce47; }
 .game-card-minimal .stage-content .scene {
   height: 100%;
