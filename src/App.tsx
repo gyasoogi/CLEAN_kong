@@ -58,12 +58,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+const HIDDEN_LEADERBOARD_NAMES = new Set(['ㄹ', 'ㅏㅎ', '류']);
+
+function isValidLeaderboardNickname(nickname: string) {
+  const cleanName = nickname.trim();
+  return Array.from(cleanName).length >= 2 && !HIDDEN_LEADERBOARD_NAMES.has(cleanName);
+}
+
 function parseLeaderboardEntries(value: unknown): LeaderboardEntry[] {
   if (!isRecord(value)) return [];
   return Object.entries(value).flatMap(([id, item]) => {
     if (!isRecord(item) || typeof item.nickname !== 'string' ||
       typeof item.timeMs !== 'number' || !Number.isFinite(item.timeMs) ||
-      typeof item.createdAt !== 'string') return [];
+      typeof item.createdAt !== 'string' || HIDDEN_LEADERBOARD_NAMES.has(item.nickname.trim()) ||
+      Array.from(item.nickname.trim()).length < 2) return [];
     return [{ id, nickname: item.nickname, timeMs: item.timeMs, createdAt: item.createdAt }];
   });
 }
@@ -817,6 +825,11 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
   const register = async () => {
     if (saving || leaderboardLoading) return;
     const cleanName = (nicknameEdited ? nickname : defaultNickname).trim().slice(0, nicknameLimit) || defaultNickname;
+    if (!isValidLeaderboardNickname(cleanName)) {
+      setSaveError(true);
+      setSaveErrorMessage('닉네임은 ㄹ, ㅏㅎ, 류를 제외하고 2글자 이상으로 입력해주세요.');
+      return;
+    }
     if (cleanName === '콩이의 1번째 아버지' || cleanName === '콩의의 1번째 아버지') {
       window.alert('우상의 화신이 당신을 바라봅니다');
       return;
@@ -880,8 +893,8 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
           {!saved && !saveError ? (
             <div className="nickname-form">
               <label htmlFor="nickname">랭킹에 표시할 닉네임</label>
-              <div><input id="nickname" value={nickname} maxLength={nicknameLimit} onChange={(event) => { setNicknameEdited(true); setNickname(event.target.value); }} placeholder="닉네임을 입력해주세요" onKeyDown={(event) => { if (event.key === 'Enter') void register(); }} /><button className="primary-button" onClick={() => { void register(); }} disabled={saving || leaderboardLoading}>{saving ? '저장 중…' : '기록 등록'}</button></div>
-              <small>최대 {nicknameLimit}자</small>
+              <div><input id="nickname" value={nickname} maxLength={nicknameLimit} onChange={(event) => { setNicknameEdited(true); setNickname(event.target.value); }} placeholder="닉네임을 입력해주세요" onKeyDown={(event) => { if (event.key === 'Enter') void register(); }} /><button className="primary-button" onClick={() => { void register(); }} disabled={saving || leaderboardLoading || !isValidLeaderboardNickname(nicknameEdited ? nickname : defaultNickname)}>{saving ? '저장 중…' : '기록 등록'}</button></div>
+              <small>2글자 이상 · 최대 {nicknameLimit}자</small>
             </div>
           ) : saved ? (
             <div className="saved-message"><span>🎉</span><div><strong>{currentRankEntry?.nickname ?? nickname}님{rank ? `, ${rank}위로` : ''} 등록 완료!</strong><small>다음에는 더 빠른 기록에 도전해 보세요.</small></div></div>
