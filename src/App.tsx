@@ -468,7 +468,7 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
   const successfulHits = useRef(0);
   const needleRef = useRef(0);
   const waterMarkId = useRef(0);
-  const trackElement = useRef<HTMLDivElement>(null);
+  const targetElement = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -561,23 +561,25 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
           className="timing-game"
           role="button"
           tabIndex={0}
-            aria-label="노란 구간을 터치해 물 뿌리기"
-            onPointerDown={(event) => {
-              event.preventDefault();
-              const track = trackElement.current;
-              if (!track || track.clientHeight === 0) return;
-              const bounds = track.getBoundingClientRect();
-              const position = ((event.clientY - bounds.top - track.clientTop) / track.clientHeight) * 100;
-              hit(position);
-            }}
+          aria-label="노란 구간을 터치해 물 뿌리기"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            const target = targetElement.current;
+            if (!target) return;
+            const bounds = target.getBoundingClientRect();
+            if (bounds.height === 0) return;
+            const position = zoneLeftRef.current
+              + ((event.clientY - bounds.top) / bounds.height) * TIMING_ZONE_SIZE;
+            hit(position);
+          }}
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); hit(); } }}
         >
-            <div ref={trackElement} className="dryer-track">
-            <span className="dryer-target timing-zone" style={{ top: `${zoneLeft}%`, height: `${TIMING_ZONE_SIZE}%` }} />
+          <div className="dryer-track">
+            <span ref={targetElement} className="dryer-target timing-zone" style={{ top: `${zoneLeft}%`, height: `${TIMING_ZONE_SIZE}%` }} />
             <span className="dryer-player" style={{ top: `${needle}%` }} />
           </div>
         </div>
-        <div className="scene-caption"><span className="live-dot" />노란 구간 중앙에 맞춰 콩이를 눌러요</div>
+        <div className="scene-caption"><span className="live-dot" />노란 구간에 맞춰 콩이를 누르거나 바를 터치해요</div>
       </div>
     </div>
   );
@@ -680,9 +682,9 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
   const tipDismissedRef = useRef(false);
   const done = useRef(false);
   const startHoldControl = useCallback(() => {
-    if (holdingRef.current || done.current) return;
+    if (done.current) return;
     holdingRef.current = true;
-    const nextPlayer = clamp(playerRef.current - DRYER_PLAYER_RISE_SPEED * 0.48, 0, 100);
+    const nextPlayer = clamp(playerRef.current - DRYER_PLAYER_RISE_SPEED, 0, 100);
     playerRef.current = nextPlayer;
     if (playerElement.current) playerElement.current.style.top = `${nextPlayer}%`;
   }, []);
@@ -746,7 +748,7 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
     const down = (event: KeyboardEvent) => {
       if (event.code === 'Space') {
         event.preventDefault();
-        startHoldControl();
+        if (!event.repeat) startHoldControl();
       }
     };
     const up = (event: KeyboardEvent) => {

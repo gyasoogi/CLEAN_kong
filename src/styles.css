@@ -441,6 +441,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3
 .timing-game {
   left: min(calc(50% + 218px), calc(100% - 50px));
   width: 44px;
+  touch-action: none;
 }
 .timing-game .dryer-track {
   position: absolute;
