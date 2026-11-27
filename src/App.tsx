@@ -1,15 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onValue, push, runTransaction } from '@firebase/database';
 import chProfile from '../img/ch.png';
+import desktopBath from '../img/d-bath.png';
+import desktopWood from '../img/d-wood.png';
 import dryDog from '../img/dry.png';
 import happyDog from '../img/happy.png';
 import jumpDog from '../img/jump.png';
 import titleLogo from '../img/logo.png';
 import messDog from '../img/mess.png';
+import mobileBath from '../img/m-bath.png';
+import mobileWood from '../img/m-wood.png';
 import wetDog from '../img/wet.png';
 import { leaderboardRef } from './firebase';
 
 type Screen = 'title' | 'ranking' | 'intro' | 'game' | 'result';
+const COMMON_PRELOAD_IMAGES = [
+  chProfile,
+  dryDog,
+  happyDog,
+  jumpDog,
+  titleLogo,
+  messDog,
+  wetDog,
+];
+const DESKTOP_PRELOAD_IMAGES = [desktopBath, desktopWood];
+const MOBILE_PRELOAD_IMAGES = [mobileBath, mobileWood];
+
+function preloadImage(src: string) {
+  const image = new Image();
+  image.src = src;
+  return image.decode().catch(() => {
+    throw new Error('이미지를 불러오지 못했어요. 연결 상태를 확인한 뒤 다시 시도해주세요.');
+  });
+}
+
 type LeaderboardEntry = {
   id: string;
   nickname: string;
@@ -151,7 +175,7 @@ function LeaderboardContent({ state, maxEntries = 5, currentEntryId }: { state: 
   return <LeaderboardRows entries={state.entries} currentEntryId={currentEntryId} maxEntries={maxEntries} />;
 }
 
-function TitleScreen({ onStart, onRanking, leaderboardState }: { onStart: () => void; onRanking: () => void; leaderboardState: LeaderboardState }) {
+function TitleScreen({ onStart, onRanking, leaderboardState, assetsReady }: { onStart: () => void; onRanking: () => void; leaderboardState: LeaderboardState; assetsReady: boolean }) {
 
   return (
     <main className="title-screen">
@@ -160,12 +184,12 @@ function TitleScreen({ onStart, onRanking, leaderboardState }: { onStart: () => 
         <section className="title-ranking" aria-label="랭킹 상위 5개">
           <div className="ranking-head">
             <h2>랭킹</h2>
-            <button className="ranking-expand-button" onClick={onRanking} aria-label="전체 랭킹 보기">→</button>
+            <button className="ranking-expand-button" onClick={onRanking} aria-label="전체 랭킹 보기" disabled={!assetsReady}>→</button>
           </div>
           <LeaderboardContent state={leaderboardState} />
         </section>
         <div className="title-actions">
-          <button className="title-button title-button-primary" onClick={onStart}>시작하기</button>
+          <button className="title-button title-button-primary" onClick={onStart} disabled={!assetsReady}>시작하기</button>
         </div>
       </section>
     </main>
@@ -944,6 +968,9 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('title');
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [assetLoadError, setAssetLoadError] = useState<string | null>(null);
+  const [assetLoadAttempt, setAssetLoadAttempt] = useState(0);
   const leaderboardState = useLeaderboard(screen === 'title' || screen === 'ranking' || screen === 'result');
   const [stage, setStage] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -956,6 +983,26 @@ export default function App() {
   const stageRef = useRef(stage);
   screenRef.current = screen;
   stageRef.current = stage;
+
+  useEffect(() => {
+    let cancelled = false;
+    setAssetsReady(false);
+    setAssetLoadError(null);
+    const responsiveImages = window.matchMedia('(max-width: 650px)').matches
+      ? MOBILE_PRELOAD_IMAGES
+      : DESKTOP_PRELOAD_IMAGES;
+    Promise.all([...COMMON_PRELOAD_IMAGES, ...responsiveImages].map(preloadImage)).then(
+      () => {
+        if (!cancelled) setAssetsReady(true);
+      },
+      (error: unknown) => {
+        if (!cancelled) {
+          setAssetLoadError(error instanceof Error ? error.message : '이미지를 불러오지 못했어요.');
+        }
+      },
+    );
+    return () => { cancelled = true; };
+  }, [assetLoadAttempt]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1053,12 +1100,27 @@ export default function App() {
       <div className={`home-carousel ${screen === 'ranking' ? 'show-ranking' : ''}`}>
         <div className="home-carousel-track">
           <div className="home-carousel-panel">
-            <TitleScreen onStart={() => setScreen('intro')} onRanking={() => setScreen('ranking')} leaderboardState={leaderboardState} />
+            <TitleScreen onStart={() => setScreen('intro')} onRanking={() => setScreen('ranking')} leaderboardState={leaderboardState} assetsReady={assetsReady} />
           </div>
           <div className="home-carousel-panel">
             <RankingScreen onBack={() => setScreen('title')} leaderboardState={leaderboardState} />
           </div>
         </div>
+        {!assetsReady && (
+          <div className="asset-loading-overlay">
+            {assetLoadError ? (
+              <div className="asset-loading-error" role="alert">
+                <p>{assetLoadError}</p>
+                <button className="title-button" onClick={() => setAssetLoadAttempt((attempt) => attempt + 1)}>다시 시도</button>
+              </div>
+            ) : (
+              <div className="asset-loading-status" role="status" aria-live="polite">
+                <span className="asset-loading-paw" aria-hidden="true">🐾</span>
+                <span>콩이를 불러오는 중...</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
