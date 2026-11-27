@@ -301,6 +301,8 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
   const dogRef = useRef<HTMLDivElement>(null);
   const holdingRef = useRef(false);
   const holdingSinceRef = useRef<number | null>(null);
+  const touchPointerIdRef = useRef<number | null>(null);
+  const touchPositionRef = useRef<{ x: number; y: number } | null>(null);
   const tipDismissedRef = useRef(false);
   const doneRef = useRef(false);
 
@@ -323,6 +325,15 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
       });
     }, 780);
     const meter = window.setInterval(() => {
+      if (touchPointerIdRef.current !== null) {
+        const point = touchPositionRef.current;
+        const bounds = dogRef.current?.getBoundingClientRect();
+        const isOverDog = point !== null && bounds !== undefined
+          && point.x >= bounds.left && point.x <= bounds.right
+          && point.y >= bounds.top && point.y <= bounds.bottom;
+        if (isOverDog) startHover();
+        else stopHover();
+      }
       if (holdingSinceRef.current !== null && Date.now() - holdingSinceRef.current >= 5000 && !tipDismissedRef.current) {
         tipDismissedRef.current = true;
         onTipDismiss();
@@ -349,7 +360,10 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
   };
 
   const trackPointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'touch') return;
+    if (event.pointerType === 'touch' && event.pointerId !== touchPointerIdRef.current) return;
+    if (event.pointerType === 'touch') {
+      touchPositionRef.current = { x: event.clientX, y: event.clientY };
+    }
     const bounds = dogRef.current?.getBoundingClientRect();
     if (!bounds) return;
 
@@ -366,7 +380,10 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
   }, []);
 
   const releaseTouchHold = useCallback((event: PointerEvent) => {
-    if (event.pointerType === 'touch') stopHover();
+    if (event.pointerType !== 'touch' || event.pointerId !== touchPointerIdRef.current) return;
+    touchPointerIdRef.current = null;
+    touchPositionRef.current = null;
+    stopHover();
   }, [stopHover]);
 
   useEffect(() => {
@@ -382,7 +399,10 @@ function HoldingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTi
 
   const startTouchHold = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== 'touch') return;
+    if (touchPointerIdRef.current !== null && touchPointerIdRef.current !== event.pointerId) return;
     event.preventDefault();
+    touchPointerIdRef.current = event.pointerId;
+    touchPositionRef.current = { x: event.clientX, y: event.clientY };
     startHover();
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer capture is optional */ }
   };
