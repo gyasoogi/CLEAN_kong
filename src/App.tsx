@@ -70,6 +70,7 @@ function parseLeaderboardEntries(value: unknown): LeaderboardEntry[] {
 
 function useLeaderboard(enabled: boolean) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +83,10 @@ function useLeaderboard(enabled: boolean) {
     setLoading(true);
     setError(null);
     return onValue(leaderboardRef, (snapshot) => {
-      const nextEntries = parseLeaderboardEntries(snapshot.val());
+      const value = snapshot.val();
+      const rawCount = isRecord(value) ? Object.keys(value).length : 0;
+      setTotalCount(rawCount);
+      const nextEntries = parseLeaderboardEntries(value);
       setEntries(nextEntries.sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt)).slice(0, 100));
       setLoading(false);
       setError(null);
@@ -92,7 +96,7 @@ function useLeaderboard(enabled: boolean) {
     });
   }, [enabled]);
 
-  return { entries, loading, error };
+  return { entries, totalCount, loading, error };
 }
 
 type LeaderboardState = ReturnType<typeof useLeaderboard>;
@@ -157,6 +161,9 @@ function RankingScreen({ onBack, leaderboardState }: { onBack: () => void; leade
         <div className="ranking-page-title">
           <button className="ranking-back-button" onClick={onBack} aria-label="타이틀로 돌아가기">←</button>
           <h1>랭킹</h1>
+          <span className="ranking-total">
+            {leaderboardState.loading ? '불러오는 중' : `총 ${leaderboardState.totalCount}명`}
+          </span>
         </div>
         <LeaderboardContent state={leaderboardState} maxEntries={100} />
       </section>
@@ -791,10 +798,10 @@ async function drawResultImage(timeMs: number, rank: number | null, nickname: st
 }
 
 function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number; onRestart: () => void; leaderboardState: LeaderboardState }) {
-  const { entries: leaderboard, loading: leaderboardLoading, error: leaderboardError } = leaderboardState;
-  const defaultNickname = `콩이의 ${leaderboard.length + 1}번째 어머니`;
+  const { totalCount, loading: leaderboardLoading, error: leaderboardError } = leaderboardState;
+  const defaultNickname = `콩이의 ${totalCount + 1}번째 어머니`;
   const nicknameLimit = 20;
-  const [nickname, setNickname] = useState('콩이의 1번째 어머니');
+  const [nickname, setNickname] = useState(defaultNickname);
   const [nicknameEdited, setNicknameEdited] = useState(false);
   const [rank, setRank] = useState<number | null>(null);
   const [registeredEntry, setRegisteredEntry] = useState<LeaderboardEntry | null>(null);
@@ -824,29 +831,13 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
       const result = await runTransaction(leaderboardRef, (currentValue) => {
         if (currentValue !== null && !isRecord(currentValue)) return;
         const updated: Record<string, unknown> = isRecord(currentValue) ? { ...currentValue } : {};
-        const bestByNickname = new Map<string, LeaderboardEntry>();
-        parseLeaderboardEntries(updated).forEach((entry) => {
-          const currentBest = bestByNickname.get(entry.nickname);
-          if (!currentBest || entry.timeMs < currentBest.timeMs) bestByNickname.set(entry.nickname, entry);
-        });
-        const bestEntryIds = new Set([...bestByNickname.values()].map((entry) => entry.id));
-        parseLeaderboardEntries(updated).forEach((entry) => {
-          if (!bestEntryIds.has(entry.id)) delete updated[entry.id];
-        });
-        const currentBest = bestByNickname.get(cleanName);
-        if (currentBest) {
-          if (timeMs < currentBest.timeMs) {
-            updated[currentBest.id] = { nickname: cleanName, timeMs, createdAt };
-          }
-        } else {
-          updated[newEntryKey] = { nickname: cleanName, timeMs, createdAt };
-        }
+        updated[newEntryKey] = { nickname: cleanName, timeMs, createdAt };
         return updated;
       });
       if (!result.committed) throw new Error('랭킹 기록을 갱신하지 못했습니다.');
       const updated = parseLeaderboardEntries(result.snapshot.val())
         .sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt));
-      const entry = updated.find((item) => item.nickname === cleanName);
+      const entry = updated.find((item) => item.id === newEntryKey);
       if (!entry) throw new Error('Firebase가 갱신된 기록을 반환하지 않았습니다.');
       setRegisteredEntry(entry);
       setRank(leaderboardError ? null : updated.findIndex((item) => item.id === entry.id) + 1);
