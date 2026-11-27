@@ -61,6 +61,7 @@ const DRYER_TARGET_MAX = 87;
 const DRYER_TARGET_SPEED = 1.2;
 const DRYER_PLAYER_RISE_SPEED = 9.5;
 const DRYER_PLAYER_FALL_SPEED = 6;
+const DRYER_PLAYER_IMMEDIATE_RISE = DRYER_PLAYER_RISE_SPEED * 0.16;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -568,8 +569,12 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
             if (!target) return;
             const bounds = target.getBoundingClientRect();
             if (bounds.height === 0) return;
-            const position = zoneLeftRef.current
-              + ((event.clientY - bounds.top) / bounds.height) * TIMING_ZONE_SIZE;
+            const isInsideZone = event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+            const trackBounds = target.parentElement?.getBoundingClientRect();
+            if (!trackBounds || trackBounds.height === 0) return;
+            const position = isInsideZone
+              ? zoneLeftRef.current + TIMING_ZONE_SIZE / 2
+              : ((event.clientY - trackBounds.top) / trackBounds.height) * 100;
             hit(position);
           }}
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); hit(); } }}
@@ -682,9 +687,9 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
   const tipDismissedRef = useRef(false);
   const done = useRef(false);
   const startHoldControl = useCallback(() => {
-    if (done.current) return;
+    if (holdingRef.current || done.current) return;
     holdingRef.current = true;
-    const nextPlayer = clamp(playerRef.current - DRYER_PLAYER_RISE_SPEED, 0, 100);
+    const nextPlayer = clamp(playerRef.current - DRYER_PLAYER_IMMEDIATE_RISE, 0, 100);
     playerRef.current = nextPlayer;
     if (playerElement.current) playerElement.current.style.top = `${nextPlayer}%`;
   }, []);
