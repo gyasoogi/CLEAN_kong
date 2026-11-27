@@ -56,6 +56,11 @@ const STAGES: StageMeta[] = [
 ];
 
 const TIMING_ZONE_SIZE = 14.4;
+const DRYER_TARGET_MIN = 13;
+const DRYER_TARGET_MAX = 87;
+const DRYER_TARGET_SPEED = 1.2;
+const DRYER_PLAYER_RISE_SPEED = 9.5;
+const DRYER_PLAYER_FALL_SPEED = 6;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -551,7 +556,14 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
           ))}
         </div>
         <div className={`judgement ${feedback ? 'judgement-show' : ''} ${feedback === 'MISS!' ? 'judgement-miss' : ''}`}>{feedback ?? 'READY?'}</div>
-        <div className="timing-game">
+        <div
+          className="timing-game"
+          role="button"
+          tabIndex={0}
+          aria-label="타이밍 바를 눌러 물 뿌리기"
+          onPointerDown={(event) => { event.preventDefault(); hit(); }}
+          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); hit(); } }}
+        >
           <div className="dryer-track">
             <span className="dryer-target timing-zone" style={{ top: `${zoneLeft}%`, height: `${TIMING_ZONE_SIZE}%` }} />
             <span className="dryer-player" style={{ top: `${needle}%` }} />
@@ -652,23 +664,18 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
   const playerElement = useRef<HTMLSpanElement>(null);
   const targetElement = useRef<HTMLSpanElement>(null);
   const holdingRef = useRef(false);
-  const pressedAtRef = useRef(0);
-  const releasedAtRef = useRef(0);
   const playerRef = useRef(92);
-  const targetRef = useRef(50);
+  const targetPhaseRef = useRef(50 - DRYER_TARGET_MIN);
+  const lastTargetUpdateRef = useRef(Date.now());
   const dryRef = useRef(0);
   const lastGaugeUpdateRef = useRef(0);
   const alignedSinceRef = useRef<number | null>(null);
   const tipDismissedRef = useRef(false);
-  const targetVelocityRef = useRef(0.9);
-  const retargetAtRef = useRef(Date.now() + 520);
   const done = useRef(false);
   const startHoldControl = useCallback(() => {
-    if (!holdingRef.current) pressedAtRef.current = Date.now();
     holdingRef.current = true;
   }, []);
   const releaseHold = useCallback(() => {
-    if (holdingRef.current) releasedAtRef.current = Date.now();
     holdingRef.current = false;
   }, []);
 
@@ -676,24 +683,17 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
     const id = window.setInterval(() => {
       if (done.current) return;
       const now = Date.now();
-      if (now >= retargetAtRef.current) {
-        targetVelocityRef.current = (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.25);
-        retargetAtRef.current = now + 380 + Math.random() * 620;
-      }
-      let targetPosition = targetRef.current + targetVelocityRef.current;
-      if (targetPosition <= 13) {
-        targetPosition = 13;
-        targetVelocityRef.current = 0.7 + Math.random() * 1.25;
-        retargetAtRef.current = now + 300 + Math.random() * 480;
-      } else if (targetPosition >= 87) {
-        targetPosition = 87;
-        targetVelocityRef.current = -(0.7 + Math.random() * 1.25);
-        retargetAtRef.current = now + 300 + Math.random() * 480;
-      }
-      targetRef.current = targetPosition;
+      const elapsedSteps = (now - lastTargetUpdateRef.current) / 50;
+      lastTargetUpdateRef.current = now;
+      const targetRange = DRYER_TARGET_MAX - DRYER_TARGET_MIN;
+      const targetPhase = (targetPhaseRef.current + DRYER_TARGET_SPEED * elapsedSteps) % (targetRange * 2);
+      targetPhaseRef.current = targetPhase;
+      const targetPosition = targetPhase <= targetRange
+        ? DRYER_TARGET_MIN + targetPhase
+        : DRYER_TARGET_MAX - (targetPhase - targetRange);
       if (targetElement.current) targetElement.current.style.top = `${targetPosition - 13}%`;
-      const riseSpeed = now - pressedAtRef.current < 250 ? 8.0 : 9.5;
-      const fallSpeed = now - releasedAtRef.current < 250 ? 4.8 : 6.0;
+      const riseSpeed = DRYER_PLAYER_RISE_SPEED;
+      const fallSpeed = DRYER_PLAYER_FALL_SPEED;
       const desiredPlayer = clamp(playerRef.current + (holdingRef.current ? -riseSpeed : fallSpeed), 0, 100);
       const nextPlayer = clamp(playerRef.current + (desiredPlayer - playerRef.current) * 0.48, 0, 100);
       playerRef.current = nextPlayer;
@@ -929,33 +929,34 @@ function ResultScreen({ timeMs, onRestart, leaderboardState }: { timeMs: number;
   return (
     <main className="result-screen">
       <div className="result-card">
-        <div className="result-main">
-          <section className="result-copy">
-            <h1>목욕 완료<span>!</span></h1>
-            <p className="result-description">콩이가 보송해졌어요</p>
-            <div className="result-time-box"><strong>{formatTime(displayedTimeMs)}</strong></div>
+        <div className="result-content">
+          <div className="result-main">
+            <section className="result-copy">
+              <h1>목욕 완료<span>!</span></h1>
+              <p className="result-description">콩이가 보송해졌어요</p>
+              <div className="result-time-box"><strong>{formatTime(displayedTimeMs)}</strong></div>
+            </section>
+            <ResultDogArt />
+            {rank && <div className="rank-chip">🏆 GLOBAL RANK <strong>#{rank}</strong></div>}
+          </div>
+          <section className="ranking-section">
+            <div className="ranking-head"><h2>랭킹</h2></div>
+            <LeaderboardContent state={leaderboardState} currentEntryId={currentRankEntry?.id} />
           </section>
-          <ResultDogArt />
-          {rank && <div className="rank-chip">🏆 GLOBAL RANK <strong>#{rank}</strong></div>}
+          <section className="registration-section">
+            {!saved && !saveError ? (
+              <div className="nickname-form">
+                <label htmlFor="nickname">랭킹에 표시할 닉네임</label>
+                <div><input id="nickname" value={nickname} maxLength={nicknameLimit} onChange={(event) => { setNicknameEdited(true); setNickname(event.target.value); }} placeholder="닉네임을 입력해주세요" onKeyDown={(event) => { if (event.key === 'Enter') void register(); }} /><button className="primary-button" onClick={() => { void register(); }} disabled={saving || leaderboardLoading || !isValidLeaderboardNickname(nicknameEdited ? nickname : defaultNickname)}>{saving ? '저장 중…' : '기록 등록'}</button></div>
+                <small>2글자 이상 · 최대 {nicknameLimit}자</small>
+              </div>
+            ) : saved ? (
+              <div className="saved-message"><span>🎉</span><div><strong>{currentRankEntry?.nickname ?? nickname}님{rank ? `, ${rank}위로` : ''} 등록 완료!</strong><small>다음에는 더 빠른 기록에 도전해 보세요.</small></div></div>
+            ) : saveError ? (
+              <div className="saved-message save-warning"><span>⚠️</span><div><strong>Firebase에 기록을 저장하지 못했어요.</strong><small>{saveErrorMessage}</small></div></div>
+            ) : null}
+          </section>
         </div>
-        <div className="result-divider" />
-        <section className="ranking-section">
-          <div className="ranking-head"><h2>랭킹</h2></div>
-          <LeaderboardContent state={leaderboardState} currentEntryId={currentRankEntry?.id} />
-        </section>
-        <section className="registration-section">
-          {!saved && !saveError ? (
-            <div className="nickname-form">
-              <label htmlFor="nickname">랭킹에 표시할 닉네임</label>
-              <div><input id="nickname" value={nickname} maxLength={nicknameLimit} onChange={(event) => { setNicknameEdited(true); setNickname(event.target.value); }} placeholder="닉네임을 입력해주세요" onKeyDown={(event) => { if (event.key === 'Enter') void register(); }} /><button className="primary-button" onClick={() => { void register(); }} disabled={saving || leaderboardLoading || !isValidLeaderboardNickname(nicknameEdited ? nickname : defaultNickname)}>{saving ? '저장 중…' : '기록 등록'}</button></div>
-              <small>2글자 이상 · 최대 {nicknameLimit}자</small>
-            </div>
-          ) : saved ? (
-            <div className="saved-message"><span>🎉</span><div><strong>{currentRankEntry?.nickname ?? nickname}님{rank ? `, ${rank}위로` : ''} 등록 완료!</strong><small>다음에는 더 빠른 기록에 도전해 보세요.</small></div></div>
-          ) : saveError ? (
-            <div className="saved-message save-warning"><span>⚠️</span><div><strong>Firebase에 기록을 저장하지 못했어요.</strong><small>{saveErrorMessage}</small></div></div>
-          ) : null}
-        </section>
         <div className="result-actions">
           <button className="share-button" onClick={share}>↗ 공유하기</button>
           <button className="restart-button" onClick={onRestart}>↻ 다시 하기</button>
