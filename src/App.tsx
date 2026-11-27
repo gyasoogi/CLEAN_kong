@@ -95,7 +95,17 @@ function useLeaderboard(enabled: boolean) {
       const rawCount = isRecord(value) ? Object.keys(value).length : 0;
       setTotalCount(rawCount);
       const nextEntries = parseLeaderboardEntries(value);
-      setEntries(nextEntries.sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt)).slice(0, 100));
+      const bestByNickname = new Map<string, LeaderboardEntry>();
+      nextEntries.forEach((entry) => {
+        const currentBest = bestByNickname.get(entry.nickname);
+        if (!currentBest || entry.timeMs < currentBest.timeMs ||
+          (entry.timeMs === currentBest.timeMs && entry.createdAt.localeCompare(currentBest.createdAt) < 0)) {
+          bestByNickname.set(entry.nickname, entry);
+        }
+      });
+      const uniqueEntries = [...bestByNickname.values()]
+        .sort((a, b) => a.timeMs - b.timeMs || a.createdAt.localeCompare(b.createdAt));
+      setEntries(uniqueEntries.slice(0, 100));
       setLoading(false);
       setError(null);
     }, (loadError) => {
