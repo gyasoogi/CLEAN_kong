@@ -468,6 +468,7 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
   const successfulHits = useRef(0);
   const needleRef = useRef(0);
   const waterMarkId = useRef(0);
+  const trackElement = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -480,12 +481,12 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
     return () => window.clearInterval(id);
   }, []);
 
-  const hit = () => {
+  const hit = (position = needleRef.current) => {
     const now = Date.now();
     if (locked.current || done.current || now - lastHitAt.current < 60) return;
     lastHitAt.current = now;
     locked.current = true;
-    const clickPosition = needleRef.current;
+    const clickPosition = clamp(position, 0, 100);
     const currentZoneLeft = zoneLeftRef.current;
     const zoneRight = currentZoneLeft + TIMING_ZONE_SIZE;
     const zoneCenter = currentZoneLeft + TIMING_ZONE_SIZE / 2;
@@ -560,11 +561,18 @@ function TimingStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTip
           className="timing-game"
           role="button"
           tabIndex={0}
-          aria-label="타이밍 바를 눌러 물 뿌리기"
-          onPointerDown={(event) => { event.preventDefault(); hit(); }}
+            aria-label="노란 구간을 터치해 물 뿌리기"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              const track = trackElement.current;
+              if (!track || track.clientHeight === 0) return;
+              const bounds = track.getBoundingClientRect();
+              const position = ((event.clientY - bounds.top - track.clientTop) / track.clientHeight) * 100;
+              hit(position);
+            }}
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); hit(); } }}
         >
-          <div className="dryer-track">
+            <div ref={trackElement} className="dryer-track">
             <span className="dryer-target timing-zone" style={{ top: `${zoneLeft}%`, height: `${TIMING_ZONE_SIZE}%` }} />
             <span className="dryer-player" style={{ top: `${needle}%` }} />
           </div>
@@ -666,25 +674,30 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
   const holdingRef = useRef(false);
   const playerRef = useRef(92);
   const targetPhaseRef = useRef(50 - DRYER_TARGET_MIN);
-  const lastTargetUpdateRef = useRef(Date.now());
   const dryRef = useRef(0);
   const lastGaugeUpdateRef = useRef(0);
   const alignedSinceRef = useRef<number | null>(null);
   const tipDismissedRef = useRef(false);
   const done = useRef(false);
   const startHoldControl = useCallback(() => {
+    if (holdingRef.current || done.current) return;
     holdingRef.current = true;
+    const nextPlayer = clamp(playerRef.current - DRYER_PLAYER_RISE_SPEED * 0.48, 0, 100);
+    playerRef.current = nextPlayer;
+    if (playerElement.current) playerElement.current.style.top = `${nextPlayer}%`;
   }, []);
   const releaseHold = useCallback(() => {
     holdingRef.current = false;
   }, []);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (done.current) return;
+    let frameId = 0;
+    let lastFrameAt = Date.now();
+    const tick = () => {
       const now = Date.now();
-      const elapsedSteps = (now - lastTargetUpdateRef.current) / 50;
-      lastTargetUpdateRef.current = now;
+      const elapsedSteps = Math.min((now - lastFrameAt) / 50, 3);
+      lastFrameAt = now;
+      if (done.current) return;
       const targetRange = DRYER_TARGET_MAX - DRYER_TARGET_MIN;
       const targetPhase = (targetPhaseRef.current + DRYER_TARGET_SPEED * elapsedSteps) % (targetRange * 2);
       targetPhaseRef.current = targetPhase;
@@ -692,10 +705,8 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
         ? DRYER_TARGET_MIN + targetPhase
         : DRYER_TARGET_MAX - (targetPhase - targetRange);
       if (targetElement.current) targetElement.current.style.top = `${targetPosition - 13}%`;
-      const riseSpeed = DRYER_PLAYER_RISE_SPEED;
-      const fallSpeed = DRYER_PLAYER_FALL_SPEED;
-      const desiredPlayer = clamp(playerRef.current + (holdingRef.current ? -riseSpeed : fallSpeed), 0, 100);
-      const nextPlayer = clamp(playerRef.current + (desiredPlayer - playerRef.current) * 0.48, 0, 100);
+      const playerDelta = (holdingRef.current ? -DRYER_PLAYER_RISE_SPEED : DRYER_PLAYER_FALL_SPEED) * elapsedSteps * 0.48;
+      const nextPlayer = clamp(playerRef.current + playerDelta, 0, 100);
       playerRef.current = nextPlayer;
       if (playerElement.current) playerElement.current.style.top = `${nextPlayer}%`;
       const nextAligned = Math.abs(nextPlayer - targetPosition) <= 13;
@@ -709,7 +720,7 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
         alignedSinceRef.current = null;
       }
       setAligned(nextAligned);
-      const nextDry = clamp(dryRef.current + (nextAligned ? 0.53 : -0.105), 0, 100);
+      const nextDry = clamp(dryRef.current + (nextAligned ? 0.53 : -0.105) * elapsedSteps, 0, 100);
       dryRef.current = nextDry;
       if (now - lastGaugeUpdateRef.current >= 100 || nextDry >= 100) {
         lastGaugeUpdateRef.current = now;
@@ -719,11 +730,13 @@ function DryerStage({ onSuccess, onTipDismiss }: { onSuccess: () => void; onTipD
         done.current = true;
         onSuccess();
       }
-    }, 50);
+      if (!done.current) frameId = window.requestAnimationFrame(tick);
+    };
+    frameId = window.requestAnimationFrame(tick);
     window.addEventListener('blur', releaseHold);
     window.addEventListener('pointerup', releaseHold);
     return () => {
-      window.clearInterval(id);
+      window.cancelAnimationFrame(frameId);
       window.removeEventListener('blur', releaseHold);
       window.removeEventListener('pointerup', releaseHold);
     };
